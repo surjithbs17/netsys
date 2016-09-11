@@ -57,7 +57,8 @@ void main(int argc, char * argv[])
   }
 
 //main Loop
-  while (gets(buf)) {
+  while (gets(buf)) 
+  {
     len = strlen(buf);
     int flag = strcmp(buf,"ls");
     
@@ -73,29 +74,35 @@ void main(int argc, char * argv[])
         {
         printf("%s\n",buf );           
         }
-    while(len = recv(s,recv_buf,sizeof(recv_buf),0))
-    {
-      fputs(recv_buf, stdout);
-      char *ack_buf = "ack";
-      len = strlen(ack_buf); 
-      int status = send(s,ack_buf,len,0);
-      if(status == -1)
+
+      while(len = recv(s,recv_buf,sizeof(recv_buf),0))
+      {
+        pid_t childPID = fork();
+
+        if(childPID >= 0) // fork was successful
         {
-          perror("Error: Send Failed");
+          if(childPID == 0) // child process
+          {
+            fputs(recv_buf, stdout);
+            printf("\n");
+            int end_flag = strcmp(recv_buf,"end");
+            if(end_flag)
+              break;
+          }
+          /**
+          else //Parent process
+          {
+            printf("\n Packet Missed - Parent process");
+          }
+          **/
         }
-      else
+        else // fork failed
         {
-        printf("%s\n",buf );           
+          printf("\n Fork failed, quitting!!!!!!\n");
+          return 1;
         }
-        
-      int end_flag = strcmp(recv_buf,"end");
-      if(end_flag)
-        break;
-      
-    }
+      }
     }
 
-    
   }
-
 }

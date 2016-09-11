@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <string.h>
 
-#define PORT_NUM 5133
+#define PORT_NUM 5120
 #define MAX_PENDING 5
 #define MAX_LINE 256
 
