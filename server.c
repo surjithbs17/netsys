@@ -9,16 +9,19 @@
 #include <fcntl.h>
 #include <string.h>
 
-#define PORT_NUM 5123
+#define PORT_NUM 5133
 #define MAX_PENDING 5
 #define MAX_LINE 256
+
+
+
 
 void main(int argc, char *argv[])
 {
   struct sockaddr_in sin;
   char buf[MAX_LINE],parsed_buf[MAX_LINE];
   int len;
-  int s,new_s;
+  int s,new_s,flag;
   FILE *ls_fp;
   char parsed_char;
 
@@ -52,28 +55,42 @@ void main(int argc, char *argv[])
     printf("Connection Accepted\n");
 
     while (len = recv(new_s, buf, sizeof(buf), 0)) 
-      if(strcmp(buf,"ls"))
-      {
-      		printf("Inside LS\n");
-      		system("ls -l > ls_file");
-      		ls_fp = fopen("ls_file","r");
+    {  
+    	fputs(buf,stdout);
+     	//flag = strcmp(buf,"ls");
+     	printf("flag = %s",buf);
+     	flag = strcmp(buf,"ls");
+     	printf("flag == %d",flag);
+     	
+     	if( flag >= 0)
+      	{
+      		fputs("Inside LS",stdout);
+      		system("ls > 'ls_file.txt'");
+      		ls_fp = fopen("ls_file.txt","r");
       		int i=0;
-      		while(parsed_char = getc(ls_fp) != EOF)
+      		//char *check_buf;
+      		//check_buf = "I am sending";
+      		//send(new_s, check_buf, (strlen(check_buf) + 1),0);
+      		while(fscanf(ls_fp,"%s",parsed_buf) != EOF)
       		{
-      			parsed_buf[i] = parsed_char;
-      			if(i==254)
-      			{
-      				parsed_buf[i++] = '\0';
-      				send(new_s, parsed_buf, (strlen(parsed_buf) + 1),0);
-      				i = -1;
+      			int status = send(new_s, parsed_buf, (strlen(parsed_buf) + 1),0);
+				if(status == -1)
+				{
+					perror("Error: Send Failed");
+				}
+				else
+				{
+				printf("%s\n",parsed_buf );      			
       			}
-      			i++;
       		}
 
-
-
-      }
-
+      		fclose(ls_fp);
+      	}
+     	else
+      	{
+      		fputs("Type Something",stdout);
+    	}
+    }
     close(new_s);
   }
 

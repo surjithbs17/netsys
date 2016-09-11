@@ -5,8 +5,9 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <string.h>
+#include <unistd.h>
 
-#define PORT_NUM 5123
+#define PORT_NUM 5132
 #define MAX_LINE 256
 
 void main(int argc, char * argv[])
@@ -56,16 +57,45 @@ void main(int argc, char * argv[])
   }
 
 //main Loop
-  while (fgets(buf,sizeof(buf),stdin)) {
-    buf[MAX_LINE-1] = '\0';
-    len = strlen(buf) + 1;
-    send(s,buf,len,0);
+  while (gets(buf)) {
+    len = strlen(buf);
+    int flag = strcmp(buf,"ls");
+    
+    if(flag == 0 )
+    {
+      printf("Inside ls\n");
+      int status = send(s,buf,len,0);
+      if(status == -1)
+        {
+          perror("Error: Send Failed");
+        }
+      else
+        {
+        printf("%s\n",buf );           
+        }
     while(len = recv(s,recv_buf,sizeof(recv_buf),0))
     {
       fputs(recv_buf, stdout);
-      if(strcmp(recv_buf,"Let's End it!"))
+      char *ack_buf = "ack";
+      len = strlen(ack_buf); 
+      int status = send(s,ack_buf,len,0);
+      if(status == -1)
+        {
+          perror("Error: Send Failed");
+        }
+      else
+        {
+        printf("%s\n",buf );           
+        }
+        
+      int end_flag = strcmp(recv_buf,"end");
+      if(end_flag)
         break;
+      
     }
+    }
+
+    
   }
 
 }
