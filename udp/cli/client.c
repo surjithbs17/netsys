@@ -165,12 +165,13 @@ void main(int argc, char * argv[])
             }
             else
             {  
-              fputs(recv_buf, get_file);
+              //fputs(recv_buf, get_file);
+              fwrite(recv_buf,sizeof(char), sizeof(recv_buf),get_file);
               printf("\nprinting file! %s",recv_buf);
             }
 
             filesize = filesize+len;
-          
+          bzero(recv_buf,sizeof(recv_buf));
       }
       fclose(get_file);
       printf("\nFile Closed! File Size = %d",filesize);
