@@ -1,0 +1,6 @@
+cli
+foo2
+ls_file.txt
+Makefile
+server
+server.c
