@@ -168,6 +168,7 @@ void main(int argc, char *argv[])
       			if(file_exists == 0)
       			{
       				FILE *get_file = fopen(filename,"r+");
+              //FILE *put_file = fopen("putfile","w+");
       				if(get_file == NULL)
       				{
       					printf("\nError: File open %s\n",filename);
@@ -180,7 +181,10 @@ void main(int argc, char *argv[])
       				rewind(get_file);
       				printf("\nFile Size = %d",filesize);
       				long bytes_read,bytes_sent,size_check =0;
+              //long bytes_write;
                     char send_buf[MAX_LINE];
+
+              int count = 0;
       				if(filesize > 255)
       				{
       					printf("\n size greater than 255\n");
@@ -188,22 +192,46 @@ void main(int argc, char *argv[])
                 bzero(send_buf,sizeof(send_buf));
       					while (size_check <= filesize)
       					{
+                  count++;
       						bytes_read = fread(send_buf,1,256,get_file);
+
+                  //bytes_write = fwrite(send_buf,sizeof(char),sizeof(send_buf),put_file);
+
       						bytes_sent = sendto(s,send_buf, sizeof(send_buf), 0,(struct sockaddr *) &remote, remote_len);
+                  int recv_len = recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len);
+
+                  int ack_flag = strcmp(buf,"ACK");
+
+                  if(ack_flag == 0)
+                  {
+                    printf("\n Ack recieved, %d",count);
+                  }
+                  else
+                  {
+                    printf("\n Ack Missed,%d",count);
+                  }
+
       						size_check = size_check + 256;
-                  printf("%s",send_buf);
+                  //printf("%s",send_buf);
+                  
                   bzero(send_buf,sizeof(send_buf));
-                  printf("\nBytes Read - %d, Bytes sent - %d , size_check - %d \n",bytes_read,bytes_sent,size_check);
+                  printf("\nBytes Read - %d, Bytes sent - %d , size_check - %d , Count = %d\n",bytes_read,bytes_sent,size_check,count);
       					}
       					sendto(s,"ENDOFFILE1234", (strlen("ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);
-      				}
+      				  fclose(get_file);
+                //fclose(put_file);
+              }
       				else
       				{
       					printf("\n size less than 255\n");
       					fseek(get_file, SEEK_SET, 0);
       					bytes_read = fread(send_buf,filesize+1,1,get_file);
-      					fclose(get_file);
-      					printf("\n%s",send_buf);
+      					
+                //bytes_write = fwrite(send_buf,sizeof(char),sizeof(send_buf),put_file);
+
+                fclose(get_file);
+                //fclose(put_file);
+      					//printf("\n%s",send_buf);
       					printf("\nRead successful");
       					bytes_sent = sendto(s,send_buf, (sizeof(send_buf)), 0,(struct sockaddr *) &remote, remote_len);
       					sendto(s,"ENDOFFILE1234",(sizeof("ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);

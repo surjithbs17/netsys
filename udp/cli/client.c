@@ -154,20 +154,24 @@ void main(int argc, char * argv[])
 
       //printf("opened file pid %d\n",getpid());
       int filesize = 0;
+      int count = 0;
       while(len = recvfrom(s, recv_buf, sizeof(recv_buf), 0,(struct sockaddr *) &sin, &slen))
       {
-        
+            count++; 
+            sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);       
             int endflag = strcmp(recv_buf,"ENDOFFILE1234");
             if(endflag == 0)
             {
-              printf("File Recieved");
+              printf("\nFile Recieved");
+
               break;
             }
             else
             {  
               //fputs(recv_buf, get_file);
               fwrite(recv_buf,sizeof(char), sizeof(recv_buf),get_file);
-              printf("\nprinting file! %s",recv_buf);
+              //printf("\nprinting file! %s",recv_buf);
+              printf("\nBytes Recieved = %d   Count = %d\n",len,count);
             }
 
             filesize = filesize+len;
