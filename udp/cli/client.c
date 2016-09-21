@@ -157,6 +157,7 @@ void main(int argc, char * argv[])
       int filesize = 0;
       int count = 0;
       int endflag;
+      char hash_value[MAX_LINE],value[MAX_LINE];
       while(len = recvfrom(s, recv_buf_w_seq, sizeof(recv_buf_w_seq), 0,(struct sockaddr *) &sin, &slen))
       {
             count++;
@@ -191,6 +192,8 @@ void main(int argc, char * argv[])
               if(atoi(SEQ) == 9999)
               {
                 printf("End of file seq num match");
+                
+                strxfrm(hash_value,recv_buf_w_seq+7,128);
               }
               break;
             }
@@ -207,6 +210,18 @@ void main(int argc, char * argv[])
 
       }
       fclose(get_file);
+      char md5command[256] = "md5sum ";
+      strcat(md5command,filename);
+      strcat(md5command," > md5value.txt");
+      printf("%s\n",md5command );
+      system(md5command);
+      FILE* md5file = fopen("md5value.txt","r+");
+      fscanf(md5file,"%s",value);
+      printf("From Sender - %s\nFrom file Value - %s\n",hash_value,value);
+      if(strcmp(value,hash_value) == 0)
+      {
+        printf("File Match Success!\n");
+      }
       printf("\nFile Closed! File Size = %d",filesize);
       
     }

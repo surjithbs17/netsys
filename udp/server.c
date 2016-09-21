@@ -30,7 +30,7 @@ void main(int argc, char *argv[])
   struct sockaddr_in sin,remote;
   struct hostent *hostp;
   unsigned int remote_len;
-  char buf[MAX_LINE],parsed_buf[MAX_LINE];
+  char buf[MAX_LINE],parsed_buf[MAX_LINE],value[MAX_LINE];
   int len;
   int slen;
   int s,new_s,flag_ls,flag_put,flag_get,flag_exit;
@@ -136,23 +136,24 @@ void main(int argc, char *argv[])
       		while(fscanf(ls_fp,"%s",parsed_buf) != EOF)
       		{
       			int status = sendto(s, parsed_buf, (strlen(parsed_buf) + 1),0,(struct sockaddr *) &remote, remote_len);
-				if(status == -1)
-				{
-					perror("Error: Send Failed");
-				}
-				else
-				{
-				printf("%s\n",parsed_buf );      			
+				    if(status == -1)
+				    {
+					   perror("Error: Send Failed");
+				    }
+				    else
+				    {
+				      printf("%s\n",parsed_buf );      			
       			}
       		}
       		int status = sendto(s, "end", (strlen("end") + 1),0,(struct sockaddr *) &remote, remote_len);
-				if(status == -1)
-				{
-					perror("Error: Send Failed");
-				}
+				  if(status == -1)
+				  {
+					 perror("Error: Send Failed");
+				  }
 
 
       		fclose(ls_fp);
+          system("rm ls_file.txt");
       		printf("ls completed\n");
       	}
 
@@ -247,8 +248,19 @@ void main(int argc, char *argv[])
                   bzero(send_buf,sizeof(send_buf));
                   printf("\nBytes Read - %d, Bytes sent - %d , size_check - %d , Count = %d\n",bytes_read,bytes_sent,size_check,count);
       					}
-      					sendto(s,"SEQ9999ENDOFFILE1234", (strlen("SEQ9999ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);
-      				  fclose(get_file);
+      					fclose(get_file);
+                char md5command[256] = "md5sum ";
+                strcat(md5command,filename);
+                strcat(md5command," > md5value.txt");
+                printf("%s\n",md5command );
+                system(md5command);
+                FILE* md5file = fopen("md5value.txt","r+");
+                fscanf(md5file,"%s",value);
+                char end_command[MAX_LINE] = "SEQ9999";
+                strcat(end_command,value);
+
+                sendto(s,end_command, (sizeof(end_command)),0,(struct sockaddr *) &remote, remote_len);
+      				  
                 //fclose(put_file);
               }
       				else
