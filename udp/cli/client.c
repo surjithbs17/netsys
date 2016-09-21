@@ -156,6 +156,7 @@ void main(int argc, char * argv[])
       //printf("opened file pid %d\n",getpid());
       int filesize = 0;
       int count = 0;
+      int endflag;
       while(len = recvfrom(s, recv_buf_w_seq, sizeof(recv_buf_w_seq), 0,(struct sockaddr *) &sin, &slen))
       {
             count++;
@@ -167,10 +168,12 @@ void main(int argc, char * argv[])
             if(seq_num == atoi(SEQ))
             {
               printf("Sequence Number Match\n");
+              endflag = 1;
             }
             else if(atoi(SEQ)==9999)
             {
               printf("End Seq match\n");
+              endflag = 0;
             }
             else
             {
@@ -181,7 +184,7 @@ void main(int argc, char * argv[])
             //printf("Recv Buf - %s\n",recv_buf );
 
             sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);       
-            int endflag = strcmp(recv_buf,"ENDOFFILE1234");
+            //int endflag = strcmp(recv_buf,"ENDOFFILE1234");
             if(endflag == 0)
             {
               printf("\nFile Recieved");
@@ -194,13 +197,14 @@ void main(int argc, char * argv[])
             else
             {  
               //fputs(recv_buf, get_file);
-              fwrite(recv_buf,sizeof(char), sizeof(recv_buf),get_file);
+              fwrite(recv_buf,sizeof(char), len-7,get_file);
               //printf("\nprinting file! %s",recv_buf);
               printf("\nBytes Recieved = %d   Count = %d\n",len,count);
             }
 
-            filesize = filesize+len;
+            filesize = filesize+(len-7);
           bzero(recv_buf,sizeof(recv_buf));
+
       }
       fclose(get_file);
       printf("\nFile Closed! File Size = %d",filesize);

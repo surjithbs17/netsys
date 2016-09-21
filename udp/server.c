@@ -11,6 +11,7 @@
 
 #define MAX_LINE 256
 #define MAX_SEQ_NUM 128
+#define PACKET_SIZE 256
 
 int doesFileExist(const char *filename) {
     struct stat st;
@@ -76,7 +77,8 @@ void main(int argc, char *argv[])
 
    while (len = recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len))
    {
-   		
+   		if(len<0)
+        continue;
 
       printf("Recieved Buffer %s\n",buf );
      	
@@ -185,20 +187,27 @@ void main(int argc, char *argv[])
       				long bytes_read,bytes_sent,size_check =0;
               //long bytes_write;
                     
-                    char send_buf_w_seq[1000];
+                    char send_buf_w_seq[PACKET_SIZE+7];
 
               int count = 0;
-      				if(filesize > 255)
+      				if(filesize > PACKET_SIZE)
       				{
       					printf("\n size greater than 255\n");
       					fseek(get_file, SEEK_SET, 0);
+                struct timeval tv;
+                tv.tv_sec = 0;
+                tv.tv_usec = 100000;
+                if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) 
+                {
+                perror("Sock Timeout Error");
+                }
               
-      					while (size_check <= filesize)
+      					while (size_check < filesize)
       					{
                   count++;
                   bzero(send_buf,sizeof(send_buf));
                   bzero(send_buf_w_seq,sizeof(send_buf_w_seq));
-      						bytes_read = fread(send_buf,1,256,get_file);
+      						bytes_read = fread(send_buf,1,PACKET_SIZE,get_file);
 
                   //bytes_write = fwrite(send_buf,sizeof(char),sizeof(send_buf),put_file);
                   int seq_num = count % MAX_SEQ_NUM;
@@ -210,8 +219,14 @@ void main(int argc, char *argv[])
                   //printf("\nBuf with Seq added - %s\n",send_buf_w_seq);
 
 
-      						bytes_sent = sendto(s,send_buf_w_seq, sizeof(send_buf_w_seq), 0,(struct sockaddr *) &remote, remote_len);
-                  int recv_len = recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len);
+                 void datasend()
+                 {
+      						bytes_sent = sendto(s,send_buf_w_seq, bytes_read+7, 0,(struct sockaddr *) &remote, remote_len);
+                  if(recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len)<0)
+                  {
+                    printf("Ack not recieved\n");
+                    datasend();
+                  }
 
                   int ack_flag = strcmp(buf,"ACK");
 
@@ -223,8 +238,10 @@ void main(int argc, char *argv[])
                   {
                     printf("\n Ack Missed,%d",count);
                   }
+                }
 
-      						size_check = size_check + 256;
+                datasend();
+      						size_check = size_check + bytes_read;
                   //printf("%s",send_buf);
                   
                   bzero(send_buf,sizeof(send_buf));
@@ -239,15 +256,14 @@ void main(int argc, char *argv[])
       					printf("\n size less than 255\n");
       					fseek(get_file, SEEK_SET, 0);
       					bytes_read = fread(send_buf,filesize+1,1,get_file);
-      					
-                //bytes_write = fwrite(send_buf,sizeof(char),sizeof(send_buf),put_file);
+      					int seq_num = 1;
+                  sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
+                  memcpy(send_buf_w_seq+strlen(send_buf_w_seq),send_buf,sizeof(send_buf));
 
                 fclose(get_file);
-                //fclose(put_file);
-      					//printf("\n%s",send_buf);
       					printf("\nRead successful");
-      					bytes_sent = sendto(s,send_buf, (sizeof(send_buf)), 0,(struct sockaddr *) &remote, remote_len);
-      					sendto(s,"ENDOFFILE1234",(sizeof("ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);
+      					bytes_sent = sendto(s,send_buf_w_seq, (sizeof(send_buf_w_seq)), 0,(struct sockaddr *) &remote, remote_len);
+      					sendto(s,"SEQ9999ENDOFFILE1234",(sizeof("SEQ9999ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);
       					printf("\nNumber of bytes read = %d \nNumber of bytes sent = %d",bytes_read,bytes_sent);
       				}
 
