@@ -9,6 +9,7 @@
 
 #define PORT_NUM 5132
 #define MAX_LINE 256
+#define MAX_SEQ_NUM 128
 
 void main(int argc, char * argv[])
 {
@@ -16,7 +17,7 @@ void main(int argc, char * argv[])
   struct hostent *hp;
   struct sockaddr_in sin;
   char *host;
-  char buf[MAX_LINE],recv_buf[MAX_LINE];
+  char buf[MAX_LINE],recv_buf[MAX_LINE],recv_buf_w_seq[MAX_LINE+7];
   int s,len,port;
   int flag_put,flag_get;
   FILE *fpout = {0};
@@ -151,19 +152,43 @@ void main(int argc, char * argv[])
         printf("sent buf - %s\n",command );           
         }
       FILE *get_file = fopen(filename,"w+");
-
+      bzero(recv_buf_w_seq,sizeof(recv_buf_w_seq));
       //printf("opened file pid %d\n",getpid());
       int filesize = 0;
       int count = 0;
-      while(len = recvfrom(s, recv_buf, sizeof(recv_buf), 0,(struct sockaddr *) &sin, &slen))
+      while(len = recvfrom(s, recv_buf_w_seq, sizeof(recv_buf_w_seq), 0,(struct sockaddr *) &sin, &slen))
       {
-            count++; 
+            count++;
+            int seq_num = count % MAX_SEQ_NUM; 
+            char SEQ[10];
+            strxfrm(SEQ,recv_buf_w_seq+3,4);
+            memcpy(recv_buf,recv_buf_w_seq+7,MAX_LINE);
+            printf("SEQ num - %s\n",SEQ );
+            if(seq_num == atoi(SEQ))
+            {
+              printf("Sequence Number Match\n");
+            }
+            else if(atoi(SEQ)==9999)
+            {
+              printf("End Seq match\n");
+            }
+            else
+            {
+              printf("Waiting for missed packet\n");
+              continue;
+            }
+
+            //printf("Recv Buf - %s\n",recv_buf );
+
             sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);       
             int endflag = strcmp(recv_buf,"ENDOFFILE1234");
             if(endflag == 0)
             {
               printf("\nFile Recieved");
-
+              if(atoi(SEQ) == 9999)
+              {
+                printf("End of file seq num match");
+              }
               break;
             }
             else

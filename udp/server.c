@@ -10,6 +10,7 @@
 
 
 #define MAX_LINE 256
+#define MAX_SEQ_NUM 128
 
 int doesFileExist(const char *filename) {
     struct stat st;
@@ -180,24 +181,36 @@ void main(int argc, char *argv[])
       				long filesize = ftell(get_file);
       				rewind(get_file);
       				printf("\nFile Size = %d",filesize);
+              char send_buf[MAX_LINE];
       				long bytes_read,bytes_sent,size_check =0;
               //long bytes_write;
-                    char send_buf[MAX_LINE];
+                    
+                    char send_buf_w_seq[1000];
 
               int count = 0;
       				if(filesize > 255)
       				{
       					printf("\n size greater than 255\n");
       					fseek(get_file, SEEK_SET, 0);
-                bzero(send_buf,sizeof(send_buf));
+              
       					while (size_check <= filesize)
       					{
                   count++;
+                  bzero(send_buf,sizeof(send_buf));
+                  bzero(send_buf_w_seq,sizeof(send_buf_w_seq));
       						bytes_read = fread(send_buf,1,256,get_file);
 
                   //bytes_write = fwrite(send_buf,sizeof(char),sizeof(send_buf),put_file);
+                  int seq_num = count % MAX_SEQ_NUM;
+                  sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
+                  //printf("\nBuf with Seq - \n%s\nLength - %d sz %d\n",send_buf_w_seq,strlen(send_buf_w_seq),sizeof(send_buf_w_seq));
+                  // strcat(send_buf_w_seq,"fg");
+                  //printf("Send Buf - \n%s\n%d",send_buf,strlen(send_buf));
+                  memcpy(send_buf_w_seq+strlen(send_buf_w_seq),send_buf,sizeof(send_buf));
+                  //printf("\nBuf with Seq added - %s\n",send_buf_w_seq);
 
-      						bytes_sent = sendto(s,send_buf, sizeof(send_buf), 0,(struct sockaddr *) &remote, remote_len);
+
+      						bytes_sent = sendto(s,send_buf_w_seq, sizeof(send_buf_w_seq), 0,(struct sockaddr *) &remote, remote_len);
                   int recv_len = recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len);
 
                   int ack_flag = strcmp(buf,"ACK");
@@ -217,7 +230,7 @@ void main(int argc, char *argv[])
                   bzero(send_buf,sizeof(send_buf));
                   printf("\nBytes Read - %d, Bytes sent - %d , size_check - %d , Count = %d\n",bytes_read,bytes_sent,size_check,count);
       					}
-      					sendto(s,"ENDOFFILE1234", (strlen("ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);
+      					sendto(s,"SEQ9999ENDOFFILE1234", (strlen("SEQ9999ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);
       				  fclose(get_file);
                 //fclose(put_file);
               }
