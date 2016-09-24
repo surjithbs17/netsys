@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #define PORT_NUM 5132
-#define MAX_LINE 256
+#define MAX_LINE 2048
 #define MAX_SEQ_NUM 128
 
 void main(int argc, char * argv[])
@@ -155,36 +155,47 @@ void main(int argc, char * argv[])
       bzero(recv_buf_w_seq,sizeof(recv_buf_w_seq));
       //printf("opened file pid %d\n",getpid());
       int filesize = 0;
-      int count = 0;
+      int count = 1; 
+      int old_seq;
       int endflag;
       char hash_value[MAX_LINE],value[MAX_LINE];
       while(len = recvfrom(s, recv_buf_w_seq, sizeof(recv_buf_w_seq), 0,(struct sockaddr *) &sin, &slen))
       {
-            count++;
+            //
             int seq_num = count % MAX_SEQ_NUM; 
-            char SEQ[10];
+            //char SEQ[10];
+            char *SEQ = (char *)malloc(sizeof(char)*(10+1));
+            bzero(SEQ,sizeof(SEQ));
             strxfrm(SEQ,recv_buf_w_seq+3,4);
             memcpy(recv_buf,recv_buf_w_seq+7,MAX_LINE);
             printf("SEQ num - %s\n",SEQ );
             if(seq_num == atoi(SEQ))
             {
               printf("Sequence Number Match\n");
+              count++;
               endflag = 1;
+              sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);       
+              old_seq = seq_num;
             }
             else if(atoi(SEQ)==9999)
             {
               printf("End Seq match\n");
               endflag = 0;
             }
+            else if(atoi(SEQ) == old_seq)
+            {
+              printf("OLd packet recieved\n");
+              sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);
+              continue;
+            }
             else
             {
-              printf("Waiting for missed packet\n");
               continue;
             }
 
             //printf("Recv Buf - %s\n",recv_buf );
 
-            sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);       
+            //sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);       
             //int endflag = strcmp(recv_buf,"ENDOFFILE1234");
             if(endflag == 0)
             {
@@ -207,10 +218,13 @@ void main(int argc, char * argv[])
 
             filesize = filesize+(len-7);
           bzero(recv_buf,sizeof(recv_buf));
+          bzero(SEQ,sizeof(SEQ));
 
       }
       fclose(get_file);
-      char md5command[256] = "md5sum ";
+      char *md5command = (char *)malloc(sizeof(char)*(MAX_LINE+1));
+      //char md5command[256] = "md5sum ";
+      strcpy(md5command,"md5sum ");
       strcat(md5command,filename);
       strcat(md5command," > md5value.txt");
       printf("%s\n",md5command );

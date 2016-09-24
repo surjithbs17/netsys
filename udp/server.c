@@ -9,9 +9,9 @@
 #include <string.h>
 
 
-#define MAX_LINE 256
+#define MAX_LINE 2048
 #define MAX_SEQ_NUM 128
-#define PACKET_SIZE 256
+#define PACKET_SIZE 2048
 
 int doesFileExist(const char *filename) {
     struct stat st;
@@ -168,7 +168,7 @@ void main(int argc, char *argv[])
       		if(filename != NULL)
       		{
       			int file_exists = doesFileExist(filename);
-      		
+      		  printf("in file exists loop\n");
       			if(file_exists == 0)
       			{
       				FILE *get_file = fopen(filename,"r+");
@@ -212,6 +212,7 @@ void main(int argc, char *argv[])
 
                   //bytes_write = fwrite(send_buf,sizeof(char),sizeof(send_buf),put_file);
                   int seq_num = count % MAX_SEQ_NUM;
+                  printf("Seq Num - %d",seq_num);
                   sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
                   //printf("\nBuf with Seq - \n%s\nLength - %d sz %d\n",send_buf_w_seq,strlen(send_buf_w_seq),sizeof(send_buf_w_seq));
                   // strcat(send_buf_w_seq,"fg");
@@ -228,6 +229,9 @@ void main(int argc, char *argv[])
                     printf("Ack not recieved\n");
                     datasend();
                   }
+
+                  printf("Buffer - %s\n",buf);
+
 
                   int ack_flag = strcmp(buf,"ACK");
 
