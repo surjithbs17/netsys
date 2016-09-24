@@ -224,6 +224,7 @@ void main(int argc, char *argv[])
                  void datasend()
                  {
       						bytes_sent = sendto(s,send_buf_w_seq, bytes_read+7, 0,(struct sockaddr *) &remote, remote_len);
+                  bzero(buf,sizeof(buf));
                   if(recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len)<0)
                   {
                     printf("Ack not recieved\n");
@@ -231,9 +232,11 @@ void main(int argc, char *argv[])
                   }
 
                   printf("Buffer - %s\n",buf);
-
-
-                  int ack_flag = strcmp(buf,"ACK");
+                  char ack_buf[7];
+                  bzero(ack_buf,sizeof(ack_buf));
+                  sprintf(ack_buf,"ACK%04d",seq_num);
+                  int ack_flag = strcmp(buf,ack_buf);
+                  printf("Recieved Buffer - %s, ACK Buffer - %s\n",buf,ack_buf);
 
                   if(ack_flag == 0)
                   {
@@ -242,6 +245,7 @@ void main(int argc, char *argv[])
                   else
                   {
                     printf("\n Ack Missed,%d",count);
+                    datasend();
                   }
                 }
 

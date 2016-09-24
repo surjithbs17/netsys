@@ -158,6 +158,8 @@ void main(int argc, char * argv[])
       int count = 1; 
       int old_seq;
       int endflag;
+      char ack_buf[7];
+      bzero(ack_buf,sizeof(ack_buf));
       char hash_value[MAX_LINE],value[MAX_LINE];
       while(len = recvfrom(s, recv_buf_w_seq, sizeof(recv_buf_w_seq), 0,(struct sockaddr *) &sin, &slen))
       {
@@ -174,7 +176,9 @@ void main(int argc, char * argv[])
               printf("Sequence Number Match\n");
               count++;
               endflag = 1;
-              sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);       
+              bzero(ack_buf,sizeof(ack_buf));
+              sprintf(ack_buf,"ACK%04d",seq_num);
+              sendto(s,ack_buf,sizeof(ack_buf),0,&sin, slen);       
               old_seq = seq_num;
             }
             else if(atoi(SEQ)==9999)
@@ -185,11 +189,12 @@ void main(int argc, char * argv[])
             else if(atoi(SEQ) == old_seq)
             {
               printf("OLd packet recieved\n");
-              sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);
+              sendto(s,ack_buf,sizeof(ack_buf),0,&sin, slen);
               continue;
             }
-            else
+            else if(atoi(SEQ) > seq_num )
             {
+              sendto(s,ack_buf,sizeof(ack_buf),0,&sin, slen);
               continue;
             }
 
