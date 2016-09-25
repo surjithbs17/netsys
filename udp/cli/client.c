@@ -6,10 +6,25 @@
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #define PORT_NUM 5132
-#define MAX_LINE 2048
+#define MAX_LINE 256
 #define MAX_SEQ_NUM 128
+#define PACKET_SIZE 256
+
+int doesFileExist(const char *filename) 
+{
+    struct stat st;
+    int result = stat(filename, &st);
+    if(result == 0)
+    {
+    printf("\nfile does exist!\n");
+    return 0;
+    }
+    else
+      return -1;
+}
 
 void main(int argc, char * argv[])
 {
@@ -161,6 +176,7 @@ void main(int argc, char * argv[])
       char ack_buf[7];
       bzero(ack_buf,sizeof(ack_buf));
       char hash_value[MAX_LINE],value[MAX_LINE];
+      
       while(len = recvfrom(s, recv_buf_w_seq, sizeof(recv_buf_w_seq), 0,(struct sockaddr *) &sin, &slen))
       {
             //
@@ -208,7 +224,7 @@ void main(int argc, char * argv[])
               if(atoi(SEQ) == 9999)
               {
                 printf("End of file seq num match");
-                
+                //char hash_value[MAX_LINE];
                 strxfrm(hash_value,recv_buf_w_seq+7,128);
               }
               break;
@@ -241,8 +257,168 @@ void main(int argc, char * argv[])
       {
         printf("File Match Success!\n");
       }
-      printf("\nFile Closed! File Size = %d",filesize);
+      printf("\nFile Closed! File Size = %d\n",filesize);
       
+    }
+
+    if(flag_put == 0)
+    {
+
+      printf("\nInside Put\n");
+      int len = strlen(command);
+      printf("after strlen");
+      printf("%s",command);
+      char filename[MAX_LINE];
+      bzero(filename,sizeof(filename));
+      strncpy(filename,command+4,len-4);
+ 
+      printf("\n after strcpy - %s\n", filename);
+      printf("\n filename - %s \n buffer - %s ",filename,command);
+ 
+      int status = sendto(s,command,len,0,&sin, slen);
+      if(status == -1)
+        {
+          perror("Error: Send Failed");
+        }
+      else
+        {
+        printf("sent buf - %s\n",command );           
+        }
+
+      if(filename != NULL)
+      {
+        int file_exists = doesFileExist(filename);
+        printf("in file exists loop\n");
+        if(file_exists == 0)
+        {
+          FILE *put_file = fopen(filename,"r+");
+         //FILE *put_file = fopen("putfile","w+");
+          if(put_file == NULL)
+          {
+            printf("\nError: File open %s\n",filename);
+            exit(1);
+          }
+              //printf("\n in main\n");
+              
+          fseek(put_file,0,SEEK_END);
+          long filesize = ftell(put_file);
+          rewind(put_file);
+          printf("\nFile Size = %d",filesize);
+          char send_buf[MAX_LINE];
+          long bytes_read,bytes_sent,size_check =0;
+              //long bytes_write;
+                    
+          char send_buf_w_seq[PACKET_SIZE+7];
+
+          int count = 0;
+          if(filesize > PACKET_SIZE)
+          {
+            printf("\n size greater than 255\n");
+            fseek(put_file, SEEK_SET, 0);
+            struct timeval tv;
+            tv.tv_sec = 0;
+            tv.tv_usec = 100000;
+            if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) 
+            {
+              perror("Sock Timeout Error");
+            }
+            char hash_value[MAX_LINE],value[MAX_LINE];
+              
+            while (size_check < filesize)
+            {
+              count++;
+              bzero(send_buf,sizeof(send_buf));
+              bzero(send_buf_w_seq,sizeof(send_buf_w_seq));
+              bytes_read = fread(send_buf,1,PACKET_SIZE,put_file);
+
+                  //bytes_write = fwrite(send_buf,sizeof(char),sizeof(send_buf),put_file);
+              int seq_num = count % MAX_SEQ_NUM;
+              printf("Seq Num - %d",seq_num);
+              sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
+              //printf("\nBuf with Seq - \n%s\nLength - %d sz %d\n",send_buf_w_seq,strlen(send_buf_w_seq),sizeof(send_buf_w_seq));
+              // strcat(send_buf_w_seq,"fg");
+              //printf("Send Buf - \n%s\n%d",send_buf,strlen(send_buf));
+              memcpy(send_buf_w_seq+strlen(send_buf_w_seq),send_buf,sizeof(send_buf));
+              //printf("\nBuf with Seq added - %s\n",send_buf_w_seq);
+              void datasend()
+              {
+                bytes_sent = sendto(s,send_buf_w_seq, bytes_read+7, 0,(struct sockaddr *) &sin, slen);
+                bzero(buf,sizeof(buf));
+                if(recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &sin, &slen)<0)
+                {
+                  printf("Ack not recieved\n");
+                  datasend();
+                }
+                printf("Buffer - %s\n",buf);
+                char ack_buf[7];
+                bzero(ack_buf,sizeof(ack_buf));
+                sprintf(ack_buf,"ACK%04d",seq_num);
+                int ack_flag = strcmp(buf,ack_buf);
+                printf("Recieved Buffer - %s, ACK Buffer - %s\n",buf,ack_buf);
+                if(ack_flag == 0)
+                {
+                  printf("\n Ack recieved, %d",count);
+                }
+                else
+                {
+                  printf("\n Ack Missed,%d",count);
+                  datasend();
+                }
+              }
+
+              datasend();
+              size_check = size_check + bytes_read;
+              //printf("%s",send_buf);
+               
+              bzero(send_buf,sizeof(send_buf));
+              printf("\nBytes Read - %d, Bytes sent - %d , size_check - %d , Count = %d\n",bytes_read,bytes_sent,size_check,count);
+            }
+            fclose(put_file);
+            char md5command[256] = "md5sum ";
+            strcat(md5command,filename);
+            strcat(md5command," > md5value.txt");
+            printf("%s\n",md5command );
+            system(md5command);
+            FILE* md5file = fopen("md5value.txt","r+");
+            fscanf(md5file,"%s",value);
+            printf("MD5 Value - %s",value);
+            system("rm md5value.txt");
+            char end_command[MAX_LINE] = "SEQ9999";
+            strcat(end_command,value);
+
+            sendto(s,end_command, (sizeof(end_command)),0,(struct sockaddr *) &sin, slen);
+                
+            //fclose(put_file);
+          }
+          else
+          {
+            printf("\n size less than 255\n");
+            fseek(put_file, SEEK_SET, 0);
+            bytes_read = fread(send_buf,PACKET_SIZE,1,put_file);
+            int seq_num = 1;
+            sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
+            memcpy(send_buf_w_seq+strlen(send_buf_w_seq),send_buf,sizeof(send_buf));
+
+            fclose(put_file);
+            printf("\nRead successful");
+            bytes_sent = sendto(s,send_buf_w_seq, bytes_read, 0,(struct sockaddr *) &sin, slen);
+            sendto(s,"SEQ9999ENDOFFILE1234",(sizeof("SEQ9999ENDOFFILE1234")),0,(struct sockaddr *) &sin, slen);
+            printf("\nNumber of bytes read = %d \nNumber of bytes sent = %d",bytes_read,bytes_sent);
+          }
+
+          if(filesize == size_check)
+          {
+            printf("\nFile Sent!");
+          }
+        }
+        else
+        {
+          printf("\nFile doesnt exist anymore\n");
+        }
+
+        printf("\n Put command completed\n");
+      }
+
     }
 
 
