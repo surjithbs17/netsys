@@ -81,7 +81,7 @@ void main(int argc, char *argv[])
     if(len<0)
       continue;
 
-    //printf("Recieved Buffer %s\n",buf );
+    printf("Recieved Buffer %s\n",buf );
      	
     if(strcmp(buf,"ls") == 0)
     {
@@ -122,6 +122,8 @@ void main(int argc, char *argv[])
       flag_put = -1;
     }
 
+
+   
      	//flag_exit = strcmp(buf,"exit");
     // 	printf("\nflag_ls == %d  \nflag_get == %d \nflag_put == %d \nflag_exit = %d\n",flag_ls,flag_get,flag_put,flag_exit);
 
@@ -158,7 +160,7 @@ void main(int argc, char *argv[])
       if (flag_get == 0)
       {
      		printf("\n get command recieved\n");
-      	char filename[MAX_LINE];
+      	char *filename = (char *)malloc(sizeof(char)*(MAX_LINE+1));
     		strncpy(filename,buf+4,len-3);
       	printf("\nFilename - %s\n", filename);
 
@@ -187,7 +189,7 @@ void main(int argc, char *argv[])
             int count = 0;
      				if(filesize > PACKET_SIZE)
      				{
-     					printf("\n size greater than 255\n");
+     					//printf("\n size greater than %d\n",PACKET_SIZE);
      					fseek(get_file, SEEK_SET, 0);
               struct timeval tv;
               tv.tv_sec = 0;
@@ -202,15 +204,11 @@ void main(int argc, char *argv[])
                 bzero(send_buf,sizeof(send_buf));
                 bzero(send_buf_w_seq,sizeof(send_buf_w_seq));
     						bytes_read = fread(send_buf,1,PACKET_SIZE,get_file);
-                //bytes_write = fwrite(send_buf,sizeof(char),sizeof(send_buf),put_file);
                 int seq_num = count % MAX_SEQ_NUM;
-                //printf("Seq Num - %d",seq_num);
+
                 sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
-                //printf("\nBuf with Seq - \n%s\nLength - %d sz %d\n",send_buf_w_seq,strlen(send_buf_w_seq),sizeof(send_buf_w_seq));
-                // strcat(send_buf_w_seq,"fg");
-                //printf("Send Buf - \n%s\n%d",send_buf,strlen(send_buf));
                 memcpy(send_buf_w_seq+strlen(send_buf_w_seq),send_buf,sizeof(send_buf));
-                  //printf("\nBuf with Seq added - %s\n",send_buf_w_seq);
+                
 
 
                 void datasend()
@@ -228,7 +226,7 @@ void main(int argc, char *argv[])
                   bzero(ack_buf,sizeof(ack_buf));
                   sprintf(ack_buf,"ACK%04d",seq_num);
                   int ack_flag = strcmp(buf,ack_buf);
-                  //printf("Recieved Buffer - %s, ACK Buffer - %s\n",buf,ack_buf);
+                  printf("Recieved Buffer - %s, ACK Buffer - %s\n",buf,ack_buf);
 
                   if(ack_flag == 0)
                   {
@@ -236,7 +234,7 @@ void main(int argc, char *argv[])
                   }
                   else
                   {
-                    printf("-");
+                    printf("!\n");
                     datasend();
                   }
                 }
@@ -266,19 +264,72 @@ void main(int argc, char *argv[])
             }
       			else
       			{
-      				printf("\n size less than 255\n");
+      				printf("\n size less than %d\n",PACKET_SIZE);
       				fseek(get_file, SEEK_SET, 0);
-      				bytes_read = fread(send_buf,PACKET_SIZE,1,get_file);
+              bzero(send_buf,sizeof(send_buf));
+              bzero(send_buf_w_seq,sizeof(send_buf_w_seq));
+      				bytes_read = fread(send_buf,sizeof(char),PACKET_SIZE,get_file);
+              //printf("small file");
       				int seq_num = 1;
               sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
-              memcpy(send_buf_w_seq+strlen(send_buf_w_seq),send_buf,sizeof(send_buf));
+              memcpy(send_buf_w_seq+7,send_buf,sizeof(send_buf));
               fclose(get_file);
       			  //printf("\nRead successful");
-      				bytes_sent = sendto(s,send_buf_w_seq, bytes_read+7, 0,(struct sockaddr *) &remote, remote_len);
-      				sendto(s,"SEQ9999ENDOFFILE1234",(sizeof("SEQ9999ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);
+              printf("%s\n",send_buf_w_seq);
+
+      				
+             
+                
+                void datasend1()
+                {
+                  bytes_sent = sendto(s,send_buf_w_seq, bytes_read+7, 0,(struct sockaddr *) &remote, remote_len);
+                  bzero(buf,sizeof(buf));
+                  if(recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len)<0)
+                  {
+                    printf("^");
+                    datasend1();
+                  }
+
+                  printf("Buffer - %s\n",buf);
+                  char ack_buf[7];
+                  bzero(ack_buf,sizeof(ack_buf));
+                  sprintf(ack_buf,"ACK%04d",seq_num);
+                  int ack_flag = strcmp(buf,ack_buf);
+                  printf("Recieved Buffer - %s, ACK Buffer - %s\n",buf,ack_buf);
+
+                  if(ack_flag == 0)
+                  {
+                    printf("Ack match \n");
+                  }
+                  else
+                  {
+                    printf("Ack not match\n");
+                    datasend1();
+                  }
+                }
+
+                datasend1();
+
+                nofile_flag = 0;
+                size_check = bytes_sent-7;
+                printf("going out of this\n");
+
+              //fclose(get_file);
+              char md5command[256] = "md5sum ";
+              strcat(md5command,filename);
+              strcat(md5command," > md5value.txt");
+              //printf("%s\n",md5command );
+              system(md5command);
+              FILE* md5file = fopen("md5value.txt","r+");
+              fscanf(md5file,"%s",value);
+              printf("\nMD5 Value - %s\n",value);
+              system("rm md5value.txt");
+              char end_command[MAX_LINE] = "SEQ9999";
+              strcat(end_command,value);
+              sendto(s,end_command, (sizeof(end_command)),0,(struct sockaddr *) &remote, remote_len);
       				//printf("\nNumber of bytes read = %d \nNumber of bytes sent = %d",bytes_read,bytes_sent);
       			}
-
+            
       			if(filesize == size_check)
       			{
       				printf("\nFile Sent!\n");
