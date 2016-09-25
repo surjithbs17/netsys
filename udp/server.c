@@ -50,7 +50,6 @@ void main(int argc, char *argv[])
   bzero((char *)&sin,sizeof(sin));
   sin.sin_family = AF_INET;
   sin.sin_addr.s_addr = htonl(INADDR_ANY);
-  //inet_addr("127.0.1.1"); 
   //htonl(INADDR_ANY)//
   sin.sin_port = htons((unsigned short) PORT_NUM);
 
@@ -69,21 +68,19 @@ void main(int argc, char *argv[])
     exit(1);
   }
   remote_len = sizeof(remote);
-  //printf("\nSocket Bind done!");
-
-
+  
   slen = sizeof(sin);
-  //printf("Going to listen and %d",PORT_NUM);
+  
   bzero(buf,sizeof(buf));
 
-  while (len = recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len))
+  while (len = recvfrom(s, buf, sizeof(buf), 0,(struct sockaddr *) &remote, &remote_len))   //While loop for continous operation
   {
-    if(len<0)
+    if(len<0) 
       continue;
 
     printf("Recieved Buffer %s\n",buf );
-     	
-    if(strcmp(buf,"ls") == 0)
+                                                   	
+    if(strcmp(buf,"ls") == 0)                            //Checking for commands and setting the flags
     {
       printf("ls command recieved\n");
      	flag_ls = 0;
@@ -124,37 +121,30 @@ void main(int argc, char *argv[])
 
 
    
-     	//flag_exit = strcmp(buf,"exit");
-    // 	printf("\nflag_ls == %d  \nflag_get == %d \nflag_put == %d \nflag_exit = %d\n",flag_ls,flag_get,flag_put,flag_exit);
-
-
-    if( (flag_ls == 0) )
+     if( (flag_ls == 0) )     //Inside ls command
       {
-      	//fputs("\nInside ls Command \n",stdout);
-      	system("ls > 'ls_file.txt'");
-      	ls_fp = fopen("ls_file.txt","r");
-      	int i=0;
-     		while(fscanf(ls_fp,"%s",parsed_buf) != EOF)
+      	
+      	system("ls > 'ls_file.txt'");  //doing a system command to list the files and piping the output to a file
+      	ls_fp = fopen("ls_file.txt","r");    
+      	int i=0;                                         
+     		while(fscanf(ls_fp,"%s",parsed_buf) != EOF)    //Reading the file
      		{
-     			int status = sendto(s, parsed_buf, (strlen(parsed_buf) + 1),0,(struct sockaddr *) &remote, remote_len);
+     			int status = sendto(s, parsed_buf, (strlen(parsed_buf) + 1),0,(struct sockaddr *) &remote, remote_len); //sending it through socket
 			    if(status == -1)
 			    {
 				    perror("Error: Send Failed");
 				  }
-				/*  else
-				  {
-				    printf("%s\n",parsed_buf );      			
-      		}*/
+				
       	}
-      	int status = sendto(s, "end", (strlen("end") + 1),0,(struct sockaddr *) &remote, remote_len);
+      	int status = sendto(s, "end", (strlen("end") + 1),0,(struct sockaddr *) &remote, remote_len);  //command to oend the operation
 				if(status == -1)
 				{
 				  perror("Error: Send Failed");
 				}
 
      		fclose(ls_fp);
-        system("rm ls_file.txt");
-        //     		printf("ls completed\n");
+        system("rm ls_file.txt"); //removing the ls file
+       
       }
 
       if (flag_get == 0)
@@ -166,52 +156,51 @@ void main(int argc, char *argv[])
 
       	if(filename != NULL)
       	{
-      		int file_exists = doesFileExist(filename);
-      	  //printf("in file exists loop\n");
+      		int file_exists = doesFileExist(filename);  //checking whether the file exists
+      	  
     			if(file_exists == 0)
      			{
-     				FILE *get_file = fopen(filename,"r+");
-            //FILE *put_file = fopen("putfile","w+");
+     				FILE *get_file = fopen(filename,"r+"); //opening it in reading mode
+            
      				if(get_file == NULL)
      				{
      					printf("\nError: File open %s\n",filename);
      					
      				}
-     				//printf("\n in main\n");
-     				fseek(get_file,0,SEEK_END);
+     				
+     				fseek(get_file,0,SEEK_END);  //Routing to check the file size
      				long filesize = ftell(get_file);
      				rewind(get_file);
      				printf("\nFile Size = %d",filesize);
             char send_buf[MAX_LINE];
      				long bytes_read,bytes_sent,size_check =0;
             //long bytes_write;
-            char send_buf_w_seq[PACKET_SIZE+7];
+            char send_buf_w_seq[PACKET_SIZE+7];   //Buffer with sequence numbeer added
             int count = 0;
-     				if(filesize > PACKET_SIZE)
+     				if(filesize > PACKET_SIZE) //if file is bigger than packet size it has to be put in a loop
      				{
-     					//printf("\n size greater than %d\n",PACKET_SIZE);
-     					fseek(get_file, SEEK_SET, 0);
+     					
+     					fseek(get_file, SEEK_SET, 0); //setting the file pointer to origin
               struct timeval tv;
               tv.tv_sec = 0;
               tv.tv_usec = 100000;
-              if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) 
+              if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)  //timeout setup
               {
                perror("Sock Timeout Error");
               }
     					while (size_check < filesize)
     					{
-                count++;
+                count++;  //count for file size calculations
                 bzero(send_buf,sizeof(send_buf));
                 bzero(send_buf_w_seq,sizeof(send_buf_w_seq));
-    						bytes_read = fread(send_buf,1,PACKET_SIZE,get_file);
-                int seq_num = count % MAX_SEQ_NUM;
+    						bytes_read = fread(send_buf,1,PACKET_SIZE,get_file);  //reading the buffer from file
+                int seq_num = count % MAX_SEQ_NUM;  //giving sequence number in round robin fashion
 
-                sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
-                memcpy(send_buf_w_seq+strlen(send_buf_w_seq),send_buf,sizeof(send_buf));
+                sprintf(send_buf_w_seq,"SeQ%04d",seq_num);  //formatiing sequence buffer
+                memcpy(send_buf_w_seq+strlen(send_buf_w_seq),send_buf,sizeof(send_buf));  //concatenatin two buffers
                 
 
-
-                void datasend()
+                void datasend() //function - inline, to send the buffer iteratively until it recieves ack
                 {
       					  bytes_sent = sendto(s,send_buf_w_seq, bytes_read+7, 0,(struct sockaddr *) &remote, remote_len);
                   bzero(buf,sizeof(buf));
@@ -221,7 +210,7 @@ void main(int argc, char *argv[])
                     datasend();
                   }
 
-                  //printf("Buffer - %s\n",buf);
+                  
                   char ack_buf[7];
                   bzero(ack_buf,sizeof(ack_buf));
                   sprintf(ack_buf,"ACK%04d",seq_num);
@@ -241,16 +230,16 @@ void main(int argc, char *argv[])
 
                 datasend();
       					size_check = size_check + bytes_read;
-                //printf("%s",send_buf);
+                
                   
                 bzero(send_buf,sizeof(send_buf));
-                //printf("\nBytes Read - %d, Bytes sent - %d , size_check - %d , Count = %d\n",bytes_read,bytes_sent,size_check,count);
+                
       				}
       				fclose(get_file);
-              char md5command[256] = "md5sum ";
+              char md5command[256] = "md5sum "; //md5checksum routine
               strcat(md5command,filename);
               strcat(md5command," > md5value.txt");
-              //printf("%s\n",md5command );
+              
               system(md5command);
               FILE* md5file = fopen("md5value.txt","r+");
               fscanf(md5file,"%s",value);
@@ -260,27 +249,23 @@ void main(int argc, char *argv[])
               strcat(end_command,value);
               sendto(s,end_command, (sizeof(end_command)),0,(struct sockaddr *) &remote, remote_len);
       				  
-                //fclose(put_file);
+              
             }
       			else
       			{
-      				printf("\n size less than %d\n",PACKET_SIZE);
-      				fseek(get_file, SEEK_SET, 0);
+      				printf("\n Size less than %d\n",PACKET_SIZE);
+      				fseek(get_file, SEEK_SET, 0);     //file reading routine
               bzero(send_buf,sizeof(send_buf));
               bzero(send_buf_w_seq,sizeof(send_buf_w_seq));
       				bytes_read = fread(send_buf,sizeof(char),PACKET_SIZE,get_file);
-              //printf("small file");
+              
       				int seq_num = 1;
               sprintf(send_buf_w_seq,"SeQ%04d",seq_num);
               memcpy(send_buf_w_seq+7,send_buf,sizeof(send_buf));
               fclose(get_file);
-      			  //printf("\nRead successful");
-              printf("%s\n",send_buf_w_seq);
-
-      				
-             
-                
-                void datasend1()
+      			  
+                              
+                void datasend1()  //inline function for repetetive sending until it recieves ack
                 {
                   bytes_sent = sendto(s,send_buf_w_seq, bytes_read+7, 0,(struct sockaddr *) &remote, remote_len);
                   bzero(buf,sizeof(buf));
@@ -312,13 +297,11 @@ void main(int argc, char *argv[])
 
                 nofile_flag = 0;
                 size_check = bytes_sent-7;
-                printf("going out of this\n");
-
-              //fclose(get_file);
-              char md5command[256] = "md5sum ";
+                
+              char md5command[256] = "md5sum ";     //md5 routine
               strcat(md5command,filename);
               strcat(md5command," > md5value.txt");
-              //printf("%s\n",md5command );
+              
               system(md5command);
               FILE* md5file = fopen("md5value.txt","r+");
               fscanf(md5file,"%s",value);
@@ -327,7 +310,7 @@ void main(int argc, char *argv[])
               char end_command[MAX_LINE] = "SEQ9999";
               strcat(end_command,value);
               sendto(s,end_command, (sizeof(end_command)),0,(struct sockaddr *) &remote, remote_len);
-      				//printf("\nNumber of bytes read = %d \nNumber of bytes sent = %d",bytes_read,bytes_sent);
+      				
       			}
             
       			if(filesize == size_check)
@@ -337,7 +320,7 @@ void main(int argc, char *argv[])
       			}
 
       		}
-      		else
+      		else  //file doesnt exist condition
       		{
       			printf("\nFile doesnt exist anymore\n");
             sendto(s,"SEQ8888ENDOFFILE1234",(sizeof("SEQ8888ENDOFFILE1234")),0,(struct sockaddr *) &remote, remote_len);
@@ -345,24 +328,20 @@ void main(int argc, char *argv[])
             continue;
       		}
 
-      		//printf("\n  command completed\n");
       	}
     	}
 
     	if (flag_put == 0)
       {
-      	//printf("\n put command recieved");
+
         printf("\nInside put\n");
 
-        //printf("\n get command recieved\n");
-        char filename[MAX_LINE];
+        char filename[MAX_LINE];      //file open routine
         strncpy(filename,buf+4,len-3);
         printf("\nPutting the file - %s\n", filename);
- 
-        //printf("\n after strcpy - %s fone", filename);
         FILE *get_file = fopen(filename,"w+");
         bzero(recv_buf_w_seq,sizeof(recv_buf_w_seq));
-        //printf("opened file pid %d\n",getpid());
+
         int filesize = 0;
         int count = 1; 
         int old_seq;
@@ -372,28 +351,26 @@ void main(int argc, char *argv[])
         char hash_value[MAX_LINE],value[MAX_LINE];
         while(len = recvfrom(s, recv_buf_w_seq, sizeof(recv_buf_w_seq), 0,(struct sockaddr *) &sin, &slen))
         {
-            //
+            
           int seq_num = count % MAX_SEQ_NUM; 
-          //char SEQ[10];
-          char *SEQ = (char *)malloc(sizeof(char)*(10+1));
+          char *SEQ = (char *)malloc(sizeof(char)*(10+1));  //sequence term computations in round robin fashion
           bzero(SEQ,sizeof(SEQ));
           strxfrm(SEQ,recv_buf_w_seq+3,4);
           memcpy(recv_buf,recv_buf_w_seq+7,MAX_LINE);
-          //printf("SEQ num - %s\n",SEQ );
           printf(".");
           if(seq_num == atoi(SEQ))
           {
-            //printf("Sequence Number Match\n");
+            //Sequence Number Match
               count++;
               endflag = 1;
               bzero(ack_buf,sizeof(ack_buf));
               sprintf(ack_buf,"ACK%04d",seq_num);
               sendto(s,ack_buf,sizeof(ack_buf),0,&sin, slen);       
-              old_seq = seq_num;
+              old_seq = seq_num;  //having an account on old seq num
           }
           else if(atoi(SEQ)==9999)
           {
-            //printf("End Seq match\n");
+            //End Seq match
             endflag = 0;
           }
           else if(atoi(SEQ) == old_seq)
@@ -408,26 +385,20 @@ void main(int argc, char *argv[])
             continue;
           }
 
-            //printf("Recv Buf - %s\n",recv_buf );
-
-            //sendto(s,"ACK",sizeof("ACK"),0,&sin, slen);       
-            //int endflag = strcmp(recv_buf,"ENDOFFILE1234");
           if(endflag == 0)
           {
-              //printf("\nFile Recieved");
             if(atoi(SEQ) == 9999)
             {
-              //printf("End of file seq num match");
-              strxfrm(hash_value,recv_buf_w_seq+7,128);
+              //End of file seq num match
+              strxfrm(hash_value,recv_buf_w_seq+7,128); //decoding md5hash value from end string
             }
             break;
           }
           else
           {  
-            //fputs(recv_buf, get_file);
+            
             fwrite(recv_buf,sizeof(char), len-7,get_file);
-            //printf("\nprinting file! %s",recv_buf);
-            //printf("\nBytes Recieved = %d   Count = %d\n",len,count);
+            //writing onto a file
           }
 
           filesize = filesize+(len-7);
@@ -439,7 +410,7 @@ void main(int argc, char *argv[])
 
     if(nofile_flag == 0)
     {
-      char *md5command = (char *)malloc(sizeof(char)*(MAX_LINE+1));
+      char *md5command = (char *)malloc(sizeof(char)*(MAX_LINE+1)); //md5routine
       //char md5command[256] = "md5sum ";
       strcpy(md5command,"md5sum ");
       strcat(md5command,filename);
@@ -459,7 +430,7 @@ void main(int argc, char *argv[])
     }
     }
 
-  	if (flag_exit == 0)
+  	if (flag_exit == 0)  //exit command recieved
   	{
    		printf("\n Exit command recieved\n");
     	exit(1);
@@ -472,14 +443,3 @@ void main(int argc, char *argv[])
     
 
   }
-
-
-
-     	
-
-
-
-
-
-
-
