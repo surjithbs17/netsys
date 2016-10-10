@@ -1,8 +1,0 @@
-cli
-foo1
-foo2
-image.jpg
-ls_file.txt
-Makefile
-server
-server.c
